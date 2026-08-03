@@ -1,0 +1,17 @@
+#!name=5GPN 蜂窝控制器
+#!desc=检测蜂窝直连出口并自动控制中国联通 Payload
+#!category=5GPN
+#!system=ios
+#!arguments=IPINFO_TOKEN:,TARGET_DOMAIN:example.com,WIFI_DNS:127.0.0.1,UNICOM_DNS:192.0.2.1,DNS_TTL:3600
+#!arguments-desc=IPINFO_TOKEN：IPIP 失败时供 IPinfo 使用，可留空。\nTARGET_DOMAIN：应用条件 DNS 的目标域名。\nWIFI_DNS：Wi-Fi 下返回的固定 IP，多个 IP 用英文逗号分隔。\nUNICOM_DNS：中国联通蜂窝下返回的固定 IP，多个 IP 用英文逗号分隔。\nDNS_TTL：固定 DNS 结果的缓存秒数，须为非负整数。
+
+[Rule]
+DOMAIN,myip.ipip.net,DIRECT
+DOMAIN,ipinfo.io,DIRECT
+
+[Script]
+检测蜂窝运营商 = type=event,event-name=network-changed,script-path=https://raw.githubusercontent.com/bluenight91/Surge-Module/main/scripts/carrier-controller.js,argument="{{{IPINFO_TOKEN}}}",timeout=40,engine=jsc
+运营商条件DNS = type=dns,script-path=https://raw.githubusercontent.com/bluenight91/Surge-Module/main/scripts/carrier-dns.js,argument="{{{WIFI_DNS}}}|{{{UNICOM_DNS}}}|{{{DNS_TTL}}}",timeout=5,engine=jsc
+
+[Host]
+{{{TARGET_DOMAIN}}} = script:运营商条件DNS
