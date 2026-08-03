@@ -53,6 +53,8 @@ Surge 的模块页面选择“安装新模块”后粘贴。
 - `WIFI_DNS`：Wi-Fi 下为目标域名返回的固定 IP。
 - `UNICOM_DNS`：中国联通蜂窝下为目标域名返回的固定 IP。默认
   `192.0.2.1` 属于文档保留地址，仅供演示，请替换。
+- `DNS_TTL`：Wi-Fi 和中国联通蜂窝固定 DNS 结果的缓存秒数，须为
+  非负整数，默认 `3600`。
 
 `WIFI_DNS` 和 `UNICOM_DNS` 也可填写多个 IP，使用英文逗号分隔。
 
@@ -72,7 +74,8 @@ cooldown，只使用一个带过期保护的运行锁来避免多个检测任务
 模块使用 Surge iOS 的 `#!arguments` 和 `{{{参数名}}}` 进行替换：
 
 - Token 通过脚本 `argument` 传给 `carrier-controller.js`。
-- 两个固定 DNS 结果通过脚本 `argument` 传给 `carrier-dns.js`。
+- 两个固定 DNS 结果及 `DNS_TTL` 通过脚本 `argument` 传给
+  `carrier-dns.js`。
 - 目标域名直接替换 `[Host]` 条目。
 - 加密 DNS URL 直接替换 `[SSID Setting]`；这里需要填写原始完整 URL，
   不要手动进行百分号编码。

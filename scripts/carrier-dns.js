@@ -12,13 +12,18 @@ function parseAddresses(value) {
 const rawArgument = String(
   typeof $argument === "string" ? $argument : ""
 );
-const separator = rawArgument.indexOf("|");
+const argumentParts = rawArgument.split("|");
 const wifiAddresses = parseAddresses(
-  separator >= 0 ? rawArgument.slice(0, separator) : rawArgument
+  argumentParts[0]
 );
 const unicomAddresses = parseAddresses(
-  separator >= 0 ? rawArgument.slice(separator + 1) : ""
+  argumentParts[1]
 );
+const parsedTTL = Number(argumentParts[2]);
+const ttl =
+  Number.isFinite(parsedTTL) && parsedTTL >= 0
+    ? Math.floor(parsedTTL)
+    : 3600;
 const ssid = $network.wifi && $network.wifi.ssid;
 const carrierState = $persistentStore.read(
   "cu-cellular-carrier-state"
@@ -27,12 +32,12 @@ const carrierState = $persistentStore.read(
 if (ssid && wifiAddresses.length > 0) {
   $done({
     addresses: wifiAddresses,
-    ttl: 3600
+    ttl
   });
 } else if (carrierState === "unicom" && unicomAddresses.length > 0) {
   $done({
     addresses: unicomAddresses,
-    ttl: 3600
+    ttl
   });
 } else {
   // 其他蜂窝网络、检测失败或参数为空时回退 Surge 正常 DNS。
