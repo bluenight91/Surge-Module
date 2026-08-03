@@ -5,12 +5,17 @@
  * 运行结束后不设置冷却期，持久化锁仅用于避免并发检测。
  */
 
+const ipinfoTokenArgument = String(
+  typeof $argument === "string" ? $argument : ""
+).trim();
+
 const CONFIG = {
   // 必须与 Payload 模块的 #!name 完全一致。
   payloadModule: "CU Cellular Payload",
-  ipinfoToken: String(
-    typeof $argument === "string" ? $argument : ""
-  ).trim(),
+  ipinfoToken:
+    ipinfoTokenArgument.toLowerCase() === "none"
+      ? ""
+      : ipinfoTokenArgument,
   detectionDelay: 2500,
   stateKey: "cu-cellular-carrier-state",
   runningKey: "cu-cellular-controller-running",

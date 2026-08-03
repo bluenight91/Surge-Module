@@ -46,8 +46,8 @@ Surge 的模块页面选择“安装新模块”后粘贴。
 
 ### 5GPN 蜂窝控制器
 
-- `IPINFO_TOKEN`：IPinfo Token，仅在 IPIP 请求失败时使用；可以留空，
-  留空时回退请求不带 Token。
+- `IPINFO_TOKEN`：IPinfo Token，仅在 IPIP 请求失败时使用。不使用
+  Token 时保持默认值 `none`，脚本会将其视为空值，回退请求不带 Token。
 - `TARGET_DOMAIN`：应用条件 DNS 的目标域名。默认 `example.com` 仅供
   演示，请替换。
 - `WIFI_DNS`：Wi-Fi 下为目标域名返回的固定 IP。
