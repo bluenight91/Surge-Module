@@ -19,10 +19,14 @@ const wifiAddresses = parseAddresses(
 const unicomAddresses = parseAddresses(
   argumentParts[1]
 );
-const parsedTTL = Number(argumentParts[2]);
+const rawTTL = String(argumentParts[2] || "").trim();
+const parsedTTL = Number(rawTTL);
 const ttl =
-  Number.isFinite(parsedTTL) && parsedTTL >= 0
-    ? Math.floor(parsedTTL)
+  rawTTL &&
+  Number.isInteger(parsedTTL) &&
+  parsedTTL >= 0 &&
+  parsedTTL <= 2147483647
+    ? parsedTTL
     : 3600;
 const ssid = $network.wifi && $network.wifi.ssid;
 const carrierState = $persistentStore.read(
