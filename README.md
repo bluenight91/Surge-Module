@@ -1,9 +1,45 @@
-# 5GPN Surge iOS 模块
+# Surge iOS 模块
+
+本仓库包含 Surge Monitor 信息面板和 5GPN 蜂窝网络控制模块。
+
+## Surge Monitor
+
+`surge-monitor.sgmodule` 通过本机 Surge HTTP API 的 `/v1/metrics`
+接口，在信息面板显示 Surge 版本、Build、系统、运行时间、内存占用及
+接口累计流量。
+
+- Raw URL：[远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/main/surge-monitor.sgmodule)
+- 一键安装：[在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Fmain%2Fsurge-monitor.sgmodule)
+
+### 参数
+
+- `API_KEY`：Surge HTTP API 密钥，安装时必须把默认 `none` 替换为
+  自己的密钥。
+- `API_PORT`：HTTP API 监听端口，默认 `6166`。
+- `API_PROTOCOL`：连接模式，仅支持 `http` 或 `https`，须与 Surge
+  的 HTTP API TLS 设置一致。
+
+例如，参数 `API_KEY=my-key`、`API_PORT=6166`、`API_PROTOCOL=https`
+对应请求：
+
+```text
+https://127.0.0.1:6166/v1/metrics
+X-Key: my-key
+```
+
+请先在 Surge 中启用 HTTP API，并确保监听端口、TLS 模式和模块参数
+一致。面板每 10 秒刷新一次；按照 Surge 的面板机制，自动刷新只会在
+显示策略选择视图时发生。
+
+API Key 仅通过模块参数传入，并只作为 `X-Key` 请求头发送到本机
+`127.0.0.1`。HTTPS 模式仅对该本机连接跳过证书验证。
+
+## 5GPN 蜂窝控制
 
 这组模块根据当前网络和蜂窝出口运营商，自动启停中国联通专用
 Payload，并为一个目标域名提供条件 DNS 结果。
 
-## 模块用途
+### 模块用途
 
 - `cu-cellular-payload.sgmodule`：中国联通蜂窝网络专用 Payload，
   为蜂窝流量设置 DIRECT 规则和参数指定的加密 DNS。
@@ -18,7 +54,7 @@ Payload，并为一个目标域名提供条件 DNS 结果。
 - 其他蜂窝网络、检测失败或参数为空：交回 Surge 进行正常 DNS
   查询。
 
-## 安装顺序
+### 安装顺序
 
 1. 先安装 `CU Cellular Payload`，填写加密 DNS 参数。保持模块已安装；
    控制器会自动管理它的启用状态。
@@ -26,7 +62,7 @@ Payload，并为一个目标域名提供条件 DNS 结果。
 3. 切换一次 Wi-Fi/蜂窝网络以触发首次检测。请勿重命名
    `CU Cellular Payload`，控制器按该内部名称查找模块。
 
-### Surge 远程安装
+#### Surge 远程安装
 
 | 模块 | Raw URL | 一键安装 |
 | --- | --- | --- |
@@ -36,15 +72,15 @@ Payload，并为一个目标域名提供条件 DNS 结果。
 如果 GitHub 页面不允许直接打开 `surge://`，请复制对应 Raw URL，在
 Surge 的模块页面选择“安装新模块”后粘贴。
 
-## 参数
+### 参数
 
-### CU Cellular Payload
+#### CU Cellular Payload
 
 - `ENCRYPTED_DNS_URL`：中国联通蜂窝网络使用的加密 DNS 完整 URL，
   例如 DoH、DoT 或 DoQ URL。仓库中的 `dns.example` 是保留的示例域名，
   安装时必须替换为自己的值。
 
-### 5GPN 蜂窝控制器
+#### 5GPN 蜂窝控制器
 
 - `IPINFO_TOKEN`：IPinfo Token，仅在 IPIP 请求失败时使用。不使用
   Token 时保持默认值 `none`，脚本会将其视为空值，回退请求不带 Token。
@@ -58,7 +94,7 @@ Surge 的模块页面选择“安装新模块”后粘贴。
 
 `WIFI_DNS` 和 `UNICOM_DNS` 也可填写多个 IP，使用英文逗号分隔。
 
-## 运营商检测与回退
+### 运营商检测与回退
 
 蜂窝网络变化后，控制器会等待出口稳定，然后强制使用 Surge 的
 `DIRECT` 策略请求 `https://myip.ipip.net/json`。如果请求失败、响应
@@ -69,7 +105,7 @@ IPinfo Token 为空时仍会尝试无 Token 请求。
 Wi-Fi 下不发起运营商查询并直接关闭 Payload。每次处理结束不设置
 cooldown，只使用一个带过期保护的运行锁来避免多个检测任务并发执行。
 
-## 参数替换与 URL 编码
+### 参数替换与 URL 编码
 
 模块使用 Surge iOS 的 `#!arguments` 和 `{{{参数名}}}` 进行替换：
 
@@ -84,7 +120,7 @@ cooldown，只使用一个带过期保护的运行锁来避免多个检测任务
 IPinfo 发送 Token 时使用 `encodeURIComponent`，避免 Token 破坏查询
 字符串。
 
-## 隐私说明
+### 隐私说明
 
 仓库不包含 Token、私人域名、私人 DNS 地址或其他凭据。所有自定义值
 仅保存在用户自己的 Surge 模块参数中。
