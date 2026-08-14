@@ -1,7 +1,6 @@
 #!name=Surge Monitor
 #!desc=在 Surge 信息面板显示版本、运行时间、内存及接口流量
 #!category=Panel
-#!system=ios
 #!arguments=API_KEY:none,API_PORT:6166,API_PROTOCOL:https
 #!arguments-desc=API_KEY：Surge HTTP API 密钥，安装时必须填写。\nAPI_PORT：Surge HTTP API 监听端口，默认 6166。\nAPI_PROTOCOL：连接模式，只能填写 http 或 https。
 
