@@ -1,12 +1,13 @@
-# Surge iOS 模块
+# Surge 模块
 
-本仓库包含 Surge Monitor 信息面板和 5GPN 蜂窝网络控制模块。
+本仓库包含适用于 Surge iOS/macOS 的 Surge Monitor 信息面板，以及
+Surge iOS 专用的 5GPN 蜂窝网络控制模块。
 
 ## Surge Monitor
 
 `surge-monitor.sgmodule` 通过本机 Surge HTTP API 的 `/v1/metrics`
 接口，在信息面板显示 Surge 版本、Build、系统、运行时间、内存占用及
-接口累计流量。
+接口累计流量，支持 Surge iOS 和 Surge Mac。
 
 - Raw URL：[远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/main/surge-monitor.sgmodule)
 - 一键安装：[在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Fmain%2Fsurge-monitor.sgmodule)
