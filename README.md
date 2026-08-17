@@ -1,7 +1,8 @@
 # Surge 模块
 
-本仓库包含适用于 Surge iOS/macOS 的 Surge Monitor 信息面板，以及
-Surge iOS 专用的 5GPN 蜂窝网络控制模块。
+本仓库包含适用于 Surge iOS/macOS 的 Surge Monitor 信息面板、
+DNS-QUERY 脚本 DNS 模块，以及 Surge iOS 专用的 5GPN 蜂窝网络
+控制模块。
 
 ## Surge Monitor
 
@@ -34,6 +35,52 @@ X-Key: my-key
 
 API Key 仅通过模块参数传入，并只作为 `X-Key` 请求头发送到本机
 `127.0.0.1`。HTTPS 模式仅对该本机连接跳过证书验证。
+
+## DNS-QUERY
+
+`dns-query.sgmodule` 用脚本接管 Surge 内部 DNS：通过 DoH 查询，
+支持 ECS，可选指定 `$httpClient` 策略，并提供信息面板和
+`https://dns.query` 网页。这不是 `127.0.0.1:53` 服务器。
+
+- Raw URL：[远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/main/dns-query.sgmodule)
+- 一键安装：[在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Fmain%2Fdns-query.sgmodule)
+
+安装后可在浏览器打开 `https://dns.query` 查看统计和最近查询。
+请先为 `dns.query` 启用 MITM；模块已追加该 hostname。网页里的
+`/api/surge-dns` 和测延迟接口依赖本机 Surge HTTP API，未启用时
+其余功能仍可用。
+
+### 参数
+
+- `type`：查询类型。`dual`、`A`、`AAAA`、`v4-only`、`v6-only`、
+  `prefer-v4`、`prefer-v6`，或逗号分隔的 `A,AAAA`。
+- `doh`：DoH URL，多个用逗号分隔。默认 `https://8.8.4.4/dns-query`。
+  若使用域名而非 IP，请在 `[Host]` 为该域名加 `server:syslib`，
+  避免解析自举。模块已为常见公共 DoH 域名预置该项。
+- `ttl`：覆盖 TTL；留空则用上游 TTL。
+- `timeout`：单个 DoH 请求超时（秒），默认 `2`。
+- `edns`：ECS IP。填写具体 IP，或 `auto`（先读
+  `lastNetworkInfoEvent.CN_IP`，否则用定时任务刷新的直连公网 IP）。
+- `fallback`：`1` 时失败回退 Surge 默认 DNS，`0` 则返回空结果。
+- `log`：`1` 打印脚本日志。
+- `policy`：`$httpClient` 策略名；`0` 表示不指定。
+- `flush_n` / `flush_ms`：指标落盘阈值（次数 / 毫秒），避免每次
+  查询都写 `persistentStore`。
+- `ring`：最近查询条数。
+- `slow_ms`：超过该耗时的查询必定记入环形缓冲。
+- `sample`：成功且不慢的查询记入环形缓冲的比例，`1` 为全记。
+- `cronexp`：刷新直连公网 IP 并压缩统计的定时任务。
+
+`[Host]` 中的 `* = script:DNS-QUERY Resolver` 会把未单独映射的
+域名交给本模块解析。常见公共 DoH 域名已指向 `server:syslib`，
+以免 DoH 自身再走脚本。
+
+### 隐私说明
+
+DoH 请求会把查询域名发给参数指定的上游；启用 ECS 时还会附带
+客户端子网。`edns=auto` 时，定时任务会用 `DIRECT` 访问
+`https://1.1.1.1/cdn-cgi/trace` 以刷新直连公网 IP。统计只保存在
+Surge 本地 `persistentStore`，不会写入本仓库或其他服务。
 
 ## 5GPN 蜂窝控制
 
