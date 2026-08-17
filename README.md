@@ -9,8 +9,8 @@ DNS-QUERY 模块，以及 Surge iOS 专用的 5GPN 蜂窝网络控制模块。
 接口，在信息面板显示 Surge 版本、Build、系统、运行时间、内存占用及
 接口累计流量，支持 Surge iOS 和 Surge Mac。
 
-- Raw URL：[远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/main/surge-monitor.sgmodule)
-- 一键安装：[在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Fmain%2Fsurge-monitor.sgmodule)
+- Raw URL：[远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/refs/heads/main/surge-monitor.sgmodule)
+- 一键安装：[在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Frefs%2Fheads%2Fmain%2Fsurge-monitor.sgmodule)
 
 ### 参数
 
@@ -40,8 +40,8 @@ API Key 仅通过模块参数传入，并只作为 `X-Key` 请求头发送到本
 `dns-query.sgmodule` 通过 DoH 解析域名，支持 ECS，可选指定
 `$httpClient` 策略，并提供信息面板和 `https://dns.query` 统计页。
 
-- Raw URL：[远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/main/dns-query.sgmodule)
-- 一键安装：[在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Fmain%2Fdns-query.sgmodule)
+- Raw URL：[远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/refs/heads/main/dns-query.sgmodule)
+- 一键安装：[在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Frefs%2Fheads%2Fmain%2Fdns-query.sgmodule)
 
 安装后可在浏览器打开 `https://dns.query` 查看统计和最近查询。
 请先为 `dns.query` 启用 MITM；模块已追加该 hostname。网页里的
@@ -112,8 +112,8 @@ Payload，并为一个目标域名提供条件 DNS 结果。
 
 | 模块 | Raw URL | 一键安装 |
 | --- | --- | --- |
-| CU Cellular Payload | [远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/main/cu-cellular-payload.sgmodule) | [在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Fmain%2Fcu-cellular-payload.sgmodule) |
-| 5GPN 蜂窝控制器 | [远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/main/5gpn-cellular-controller.sgmodule) | [在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Fmain%2F5gpn-cellular-controller.sgmodule) |
+| CU Cellular Payload | [远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/refs/heads/main/cu-cellular-payload.sgmodule) | [在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Frefs%2Fheads%2Fmain%2Fcu-cellular-payload.sgmodule) |
+| 5GPN 蜂窝控制器 | [远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/refs/heads/main/5gpn-cellular-controller.sgmodule) | [在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Frefs%2Fheads%2Fmain%2F5gpn-cellular-controller.sgmodule) |
 
 如果 GitHub 页面不允许直接打开 `surge://`，请复制对应 Raw URL，在
 Surge 的模块页面选择“安装新模块”后粘贴。
