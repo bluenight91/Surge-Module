@@ -30,5 +30,4 @@ dns.alidns.com = server:syslib
 *.alidns.com = server:syslib
 doh.pub = server:syslib
 doh.opendns.com = server:syslib
-*.258364448.xyz = server:syslib
 * = script:DNS-QUERY Resolver
