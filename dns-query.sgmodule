@@ -1,5 +1,5 @@
 #!name=DNS-QUERY
-#!desc=纯脚本 DNS 查询: DoH + ECS + 可选代理策略 + https://dns.query 面板. 这不是 127.0.0.1:53 服务器.
+#!desc=通过 DoH 解析域名，支持 ECS 与可选代理策略，并提供信息面板和网页统计
 #!category=DNS
 #!arguments=type:dual,doh:"https://8.8.4.4/dns-query",ttl:"",timeout:2,edns:"114.114.114.114",fallback:1,log:0,policy:0,flush_n:8,flush_ms:3000,ring:80,slow_ms:200,sample:1,cronexp:"12 * * * *"
 #!arguments-desc=type: dual / A / AAAA / v4-only / v6-only / prefer-v4 / prefer-v6, 或 A,AAAA\ndoh: DoH URL, 多个用逗号分隔. 若使用域名而非 IP, 请在 [Host] 里为该域名加 server:syslib, 避免解析自举\nttl: 覆盖 TTL, 留空则用上游 TTL\ntimeout: 单个 DoH 请求超时(秒)\nedns: ECS IP, 或 auto(读 lastNetworkInfoEvent.CN_IP, 否则读定时刷新的直连公网 IP)\nfallback: 1=失败时回退 Surge 默认 DNS\nlog: 1=打印脚本日志\npolicy: $httpClient 策略名, 0=不指定\nflush_n / flush_ms: 指标落盘阈值(次数/毫秒), 避免每次查询都写 persistentStore\nring: 最近查询条数\nslow_ms: 超过该耗时的查询必定记入环形缓冲\nsample: 成功且不慢的查询记入环形缓冲的比例, 1=全记\ncronexp: 刷新直连公网 IP 并压缩统计的定时任务
@@ -30,5 +30,4 @@ dns.alidns.com = server:syslib
 *.alidns.com = server:syslib
 doh.pub = server:syslib
 doh.opendns.com = server:syslib
-*.258364448.xyz = server:syslib
 * = script:DNS-QUERY Resolver
