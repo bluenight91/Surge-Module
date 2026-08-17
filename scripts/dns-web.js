@@ -335,7 +335,7 @@ var Metrics = (function () {
     "button{background:#243246;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:0 8px 8px 0;cursor:pointer}",
     "button:hover{border-color:var(--acc)}.ok{color:var(--ok)}.bad{color:var(--bad)}pre{white-space:pre-wrap;word-break:break-all;color:var(--muted)}",
     "</style></head><body>",
-    "<header><h1>DNS-QUERY</h1><p class='sub'>Surge 内部 DNS 钩子面板 · 不是 127.0.0.1:53 服务器</p></header>",
+    "<header><h1>DNS-QUERY</h1><p class='sub'>DoH 查询统计与最近记录</p></header>",
     "<main>",
     "<section class='grid' id='cards'></section>",
     "<p><button id='reload'>刷新</button><button id='delay'>测 DNS 延迟</button><button id='reset'>清空统计</button></p>",

@@ -1,8 +1,7 @@
 # Surge 模块
 
 本仓库包含适用于 Surge iOS/macOS 的 Surge Monitor 信息面板、
-DNS-QUERY 脚本 DNS 模块，以及 Surge iOS 专用的 5GPN 蜂窝网络
-控制模块。
+DNS-QUERY 模块，以及 Surge iOS 专用的 5GPN 蜂窝网络控制模块。
 
 ## Surge Monitor
 
@@ -38,9 +37,8 @@ API Key 仅通过模块参数传入，并只作为 `X-Key` 请求头发送到本
 
 ## DNS-QUERY
 
-`dns-query.sgmodule` 用脚本接管 Surge 内部 DNS：通过 DoH 查询，
-支持 ECS，可选指定 `$httpClient` 策略，并提供信息面板和
-`https://dns.query` 网页。这不是 `127.0.0.1:53` 服务器。
+`dns-query.sgmodule` 通过 DoH 解析域名，支持 ECS，可选指定
+`$httpClient` 策略，并提供信息面板和 `https://dns.query` 统计页。
 
 - Raw URL：[远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/main/dns-query.sgmodule)
 - 一键安装：[在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Fmain%2Fdns-query.sgmodule)
