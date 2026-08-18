@@ -89,9 +89,9 @@ Payload，并为一个目标域名提供条件 DNS 结果。
 
 - `cu-cellular-payload.sgmodule`：中国联通蜂窝网络专用 Payload，
   为蜂窝流量设置 DIRECT 规则和参数指定的加密 DNS。
-- `5gpn-cellular-controller.sgmodule`：监听网络变化。Wi-Fi 下关闭
-  Payload；蜂窝网络下检测出口运营商，仅在中国联通网络启用
-  Payload，并在状态切换后清理 Surge DNS 缓存。
+- `5gpn-cellular-controller.sgmodule`：监听网络变化、Surge 引擎启动和
+  配置重载。Wi-Fi 下关闭 Payload；蜂窝网络下检测出口运营商，仅在
+  中国联通网络启用 Payload，并在状态切换后清理 Surge DNS 缓存。
 
 控制器同时为参数指定的目标域名注册 DNS 脚本：
 
@@ -105,8 +105,9 @@ Payload，并为一个目标域名提供条件 DNS 结果。
 1. 先安装 `CU Cellular Payload`，填写加密 DNS 参数。保持模块已安装；
    控制器会自动管理它的启用状态。
 2. 再安装并启用 `5GPN 蜂窝控制器`，填写目标域名及 DNS 参数。
-3. 切换一次 Wi-Fi/蜂窝网络以触发首次检测。请勿重命名
-   `CU Cellular Payload`，控制器按该内部名称查找模块。
+3. Surge iOS 5.22.0 及以上会在引擎启动或配置重载后自动执行首次检测，
+   无需再手动切换网络。请勿重命名 `CU Cellular Payload`，控制器按该
+   内部名称查找模块。
 
 #### Surge 远程安装
 
@@ -142,14 +143,17 @@ Surge 的模块页面选择“安装新模块”后粘贴。
 
 ### 运营商检测与回退
 
-蜂窝网络变化后，控制器会等待出口稳定，然后强制使用 Surge 的
-`DIRECT` 策略请求 `https://myip.ipip.net/json`。如果请求失败、响应
-无法解析或缺少运营商信息，控制器再使用 `DIRECT` 请求 IPinfo。
-IPinfo Token 为空时仍会尝试无 Token 请求。
+网络变化、引擎启动或配置重载触发控制器后，如果当前为蜂窝网络，
+控制器会等待出口稳定，然后强制使用 Surge 的 `DIRECT` 策略请求
+`https://myip.ipip.net/json`。如果请求失败、响应无法解析或缺少
+运营商信息，控制器再使用 `DIRECT` 请求 IPinfo。IPinfo Token 为空时
+仍会尝试无 Token 请求。
 
 检测到中国联通后启用 Payload；其他运营商或检测失败时关闭 Payload。
 Wi-Fi 下不发起运营商查询并直接关闭 Payload。每次处理结束不设置
-cooldown，只使用一个带过期保护的运行锁来避免多个检测任务并发执行。
+cooldown，三个事件入口共用一个带过期保护的运行锁来避免并发执行。
+模块状态未变化时不会重复调用模块 API，因此 `profile-reloaded` 不会
+造成循环切换。
 
 ### 参数替换与 URL 编码
 
