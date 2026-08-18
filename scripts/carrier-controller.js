@@ -2,6 +2,7 @@
  * Surge iOS 蜂窝运营商控制器。
  *
  * 蜂窝网络下优先通过 DIRECT 查询 IPIP，失败时回退 IPinfo。
+ * 响应网络变化、引擎启动和配置重载事件。
  * 运行结束后不设置冷却期，持久化锁仅用于避免并发检测。
  */
 
@@ -335,12 +336,26 @@ function releaseLock() {
   $persistentStore.write("0", CONFIG.runningKey);
 }
 
+function getTriggerName() {
+  if (
+    typeof $event === "object" &&
+    $event &&
+    typeof $event.name === "string"
+  ) {
+    return $event.name;
+  }
+
+  return "unknown";
+}
+
 async function main() {
   if (!acquireLock()) {
     return;
   }
 
   try {
+    console.log(`[运营商检测] 触发事件=${getTriggerName()}`);
+
     const initialSSID = $network.wifi && $network.wifi.ssid;
 
     if (initialSSID) {
