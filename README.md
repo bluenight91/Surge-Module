@@ -88,7 +88,8 @@ Payload，并为一个目标域名提供条件 DNS 结果。
 ### 模块用途
 
 - `cu-cellular-payload.sgmodule`：中国联通蜂窝网络专用 Payload，
-  为蜂窝流量设置 DIRECT 规则和参数指定的加密 DNS。
+  为蜂窝流量设置 DIRECT 规则和参数指定的加密 DNS；可通过排除规则集
+  让指定请求继续匹配主配置中的后续规则。
 - `5gpn-cellular-controller.sgmodule`：监听网络变化、Surge 引擎启动和
   配置重载。Wi-Fi 下关闭 Payload；蜂窝网络下检测出口运营商，仅在
   中国联通网络启用 Payload，并在状态切换后清理 Surge DNS 缓存。
@@ -126,6 +127,22 @@ Surge 的模块页面选择“安装新模块”后粘贴。
 - `ENCRYPTED_DNS_URL`：中国联通蜂窝网络使用的加密 DNS 完整 URL，
   例如 DoH、DoT 或 DoQ URL。仓库中的 `dns.example` 是保留的示例域名，
   安装时必须替换为自己的值。
+- `DIRECT_EXCLUDE_URL`：不应被蜂窝 `DIRECT` 接管的远程 RULE-SET URL。
+  命中该列表的请求会跳过模块的 `DIRECT`，继续匹配主配置中的后续规则。
+  默认指向仓库内的空规则集，因此不改变现有行为。
+
+排除规则集使用 Surge RULE-SET 格式：每行只写匹配条件，不带策略，
+也不要添加 `[Rule]` 段标题或 `FINAL`。例如：
+
+```ini
+DOMAIN-SUFFIX,example.com
+DOMAIN,api.example.net
+IP-CIDR,192.0.2.0/24,no-resolve
+```
+
+这里使用 `SUBNET + NOT + RULE-SET` 的逻辑规则，而不是在模块内混入
+Detached `[Rule]`。这样命中排除列表时可以继续执行主配置规则，同时
+避免模块规则只能使用内置策略的限制。
 
 #### 5GPN 蜂窝控制器
 

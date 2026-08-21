@@ -1,0 +1,11 @@
+# CU Cellular Payload 默认排除规则集
+#
+# 默认不包含任何有效规则，因此所有蜂窝请求仍匹配模块的 DIRECT 规则。
+# 若需自定义，请在安装模块时把 DIRECT_EXCLUDE_URL 替换为自己的
+# RULE-SET URL。规则集每行只写匹配条件，不要附带策略，例如：
+#
+# DOMAIN-SUFFIX,example.com
+# DOMAIN,api.example.net
+# IP-CIDR,192.0.2.0/24,no-resolve
+#
+# 不要添加 FINAL，也不要添加 [Rule] 段标题。

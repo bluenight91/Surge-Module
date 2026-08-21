@@ -2,11 +2,11 @@
 #!desc=仅由 5GPN 蜂窝控制器自动启停，请勿手动长期启用
 #!category=5GPN
 #!system=ios
-#!arguments=ENCRYPTED_DNS_URL:https://dns.example/dns-query
-#!arguments-desc=ENCRYPTED_DNS_URL：中国联通蜂窝网络使用的加密 DNS 完整 URL；安装时请替换示例值。
+#!arguments=ENCRYPTED_DNS_URL:https://dns.example/dns-query,DIRECT_EXCLUDE_URL:https://raw.githubusercontent.com/bluenight91/Surge-Module/refs/heads/main/rules/cu-cellular-direct-exclude.list
+#!arguments-desc=ENCRYPTED_DNS_URL：中国联通蜂窝网络使用的加密 DNS 完整 URL；安装时请替换示例值。\nDIRECT_EXCLUDE_URL：不使用蜂窝 DIRECT、继续匹配主配置后续规则的远程 RULE-SET URL。
 
 [Rule]
-SUBNET,TYPE:CELLULAR,DIRECT
+AND,((SUBNET,TYPE:CELLULAR),(NOT,((RULE-SET,{{{DIRECT_EXCLUDE_URL}}})))),DIRECT
 
 [SSID Setting]
 TYPE:CELLULAR encrypted-dns-server={{{ENCRYPTED_DNS_URL}}}
