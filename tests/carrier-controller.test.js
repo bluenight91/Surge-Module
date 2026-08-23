@@ -16,8 +16,7 @@ async function runController({
   payloadEnabled = false,
   responses = [],
   store: suppliedStore = null,
-  now = 1000000,
-  onSleep = null
+  now = 1000000
 } = {}) {
   const store = suppliedStore || new Map();
   const storeReads = [];
@@ -114,11 +113,6 @@ async function runController({
     },
     setTimeout(callback, milliseconds = 0) {
       currentNow += Number(milliseconds) || 0;
-
-      if (onSleep) {
-        onSleep({ milliseconds, store });
-      }
-
       callback();
       return 0;
     }
@@ -173,74 +167,23 @@ test("profile reload still refreshes DNS when state is unchanged", async () => {
   assert.equal(result.notifications.length, 0);
 });
 
-test("locked profile reload waits and performs its required DNS refresh", async () => {
+test("locked profile reload refreshes DNS without waiting", async () => {
   const store = new Map([
     ["cu-cellular-carrier-state", "wifi"],
     ["cu-cellular-controller-running", "1000000"]
   ]);
-  let released = false;
   const result = await runController({
     eventName: "profile-reloaded",
     state: undefined,
     store,
-    now: 1000100,
-    onSleep({ store: sharedStore }) {
-      if (!released) {
-        released = true;
-        sharedStore.set("cu-cellular-controller-running", "0");
-      }
-    }
+    now: 1000100
   });
 
   assert.equal(callsTo(result, "GET", "v1/modules").length, 0);
   assert.equal(callsTo(result, "POST", "v1/dns/flush").length, 1);
-  assert.equal(
-    store.get("cu-cellular-controller-pending-reload"),
-    "0"
-  );
+  assert.equal(result.now, 1000100);
   assert.ok(
-    result.logs.some(log => log.includes("配置重载已排队"))
-  );
-});
-
-test("active task consumes a queued reload before releasing its lock", async () => {
-  const store = new Map([
-    ["cu-cellular-carrier-state", "wifi"],
-    ["cu-cellular-controller-pending-reload", "1"]
-  ]);
-  const result = await runController({
-    state: undefined,
-    store
-  });
-
-  assert.equal(callsTo(result, "POST", "v1/dns/flush").length, 1);
-  assert.equal(
-    store.get("cu-cellular-controller-pending-reload"),
-    "0"
-  );
-  assert.ok(
-    result.logs.some(log => log.includes("正在处理排队的配置重载"))
-  );
-});
-
-test("queued reload does not duplicate a DNS refresh already completed", async () => {
-  const store = new Map([
-    ["cu-cellular-carrier-state", "unicom"],
-    ["cu-cellular-controller-pending-reload", "1"]
-  ]);
-  const result = await runController({
-    state: undefined,
-    store,
-    payloadEnabled: true
-  });
-
-  assert.equal(callsTo(result, "POST", "v1/dns/flush").length, 1);
-  assert.equal(
-    store.get("cu-cellular-controller-pending-reload"),
-    "0"
-  );
-  assert.ok(
-    result.logs.some(log => log.includes("已由当前任务刷新 DNS"))
+    result.logs.some(log => log.includes("仅刷新 DNS 后退出"))
   );
 });
 
@@ -318,29 +261,6 @@ test("Payload feedback event skips delay, carrier lookup, and module API", async
   );
   assert.ok(
     duplicate.logs.some(log => log.includes("已忽略 Payload 切换"))
-  );
-});
-
-test("suppressed feedback event still completes a pending reload refresh", async () => {
-  const store = new Map([
-    ["cu-cellular-carrier-state", "unicom"],
-    ["cu-cellular-controller-feedback", "1000000|unicom"],
-    ["cu-cellular-controller-pending-reload", "1"]
-  ]);
-  const result = await runController({
-    ssid: null,
-    state: undefined,
-    payloadEnabled: true,
-    store,
-    now: 1000500
-  });
-
-  assert.equal(result.requests.length, 0);
-  assert.equal(callsTo(result, "GET", "v1/modules").length, 0);
-  assert.equal(callsTo(result, "POST", "v1/dns/flush").length, 1);
-  assert.equal(
-    store.get("cu-cellular-controller-pending-reload"),
-    "0"
   );
 });
 

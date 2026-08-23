@@ -174,12 +174,19 @@ cooldown；Payload 状态切换后会记录一个 5 秒有效、仅使用一次�
 API。真实的 Wi-Fi/蜂窝类型变化不会被该标记抑制。
 
 三个事件入口共用一个带过期保护的运行锁来避免并发检测。配置重载若在
-其他任务运行期间到达，会排队等待当前任务完成并确保 DNS 得到刷新，
-而不是直接丢弃。模块状态未变化时不会重复调用模块 API，因此
-`profile-reloaded` 不会造成循环切换。普通 `network-changed` 的检测
-结果与运营商状态、Payload 状态均一致时，也会跳过重复状态写入和 DNS
-缓存清理；`engine-started` 与 `profile-reloaded` 仍会清理 DNS 缓存，
-以恢复启动状态并应用更新后的条件 DNS 参数。
+其他任务运行期间到达，会立即刷新 DNS 后结束；运行中的任务继续完成
+运营商检测，不创建轮询定时器或让重载脚本驻留等待。模块状态未变化时
+不会重复调用模块 API，因此 `profile-reloaded` 不会造成循环切换。
+普通 `network-changed` 的检测结果与运营商状态、Payload 状态均一致时，
+也会跳过重复状态写入和 DNS 缓存清理；未遇到运行锁的
+`engine-started` 与 `profile-reloaded` 仍会执行完整检测并清理 DNS
+缓存，以恢复启动状态并应用更新后的条件 DNS 参数。
+
+三个低频控制器事件使用 WebView 脚本引擎，使其 JavaScript 执行环境与
+Surge Network Extension 进程隔离，避免长时间运行后把 NE 的 JSC 内存
+推到警戒线。高频且逻辑简单的条件 DNS 脚本继续使用 JSC，以保留较低的
+查询延迟。升级模块后如 Surge 已进入低内存模式，请重启 Surge 服务或
+引擎以释放此前 JSC 会话占用的内存。
 
 ### 参数替换与 URL 编码
 

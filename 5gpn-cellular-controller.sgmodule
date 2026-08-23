@@ -10,9 +10,9 @@ DOMAIN,myip.ipip.net,DIRECT
 DOMAIN,ipinfo.io,DIRECT
 
 [Script]
-检测蜂窝运营商 = type=event,event-name=network-changed,script-path=https://raw.githubusercontent.com/bluenight91/Surge-Module/main/scripts/carrier-controller.js,argument="{{{IPINFO_TOKEN}}}",timeout=40,engine=jsc
-启动时检测蜂窝运营商 = type=event,event-name=engine-started,script-path=https://raw.githubusercontent.com/bluenight91/Surge-Module/main/scripts/carrier-controller.js,argument="{{{IPINFO_TOKEN}}}",timeout=40,engine=jsc
-配置重载后检测蜂窝运营商 = type=event,event-name=profile-reloaded,script-path=https://raw.githubusercontent.com/bluenight91/Surge-Module/main/scripts/carrier-controller.js,argument="{{{IPINFO_TOKEN}}}",timeout=40,engine=jsc
+检测蜂窝运营商 = type=event,event-name=network-changed,script-path=https://raw.githubusercontent.com/bluenight91/Surge-Module/main/scripts/carrier-controller.js,argument="{{{IPINFO_TOKEN}}}",timeout=40,engine=webview
+启动时检测蜂窝运营商 = type=event,event-name=engine-started,script-path=https://raw.githubusercontent.com/bluenight91/Surge-Module/main/scripts/carrier-controller.js,argument="{{{IPINFO_TOKEN}}}",timeout=40,engine=webview
+配置重载后检测蜂窝运营商 = type=event,event-name=profile-reloaded,script-path=https://raw.githubusercontent.com/bluenight91/Surge-Module/main/scripts/carrier-controller.js,argument="{{{IPINFO_TOKEN}}}",timeout=40,engine=webview
 运营商条件DNS = type=dns,script-path=https://raw.githubusercontent.com/bluenight91/Surge-Module/main/scripts/carrier-dns.js,argument="{{{WIFI_DNS}}}|{{{UNICOM_DNS}}}|{{{DNS_TTL}}}",timeout=5,engine=jsc
 
 [Host]
