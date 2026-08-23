@@ -59,6 +59,22 @@ test("Wi-Fi returns only Wi-Fi addresses without reading carrier state", () => {
   assert.equal(execution.doneCount, 1);
 });
 
+test("empty Wi-Fi addresses preserve the existing Unicom fallback", () => {
+  const execution = runDNS({
+    argument: "|192.0.2.1|600",
+    ssid: "Test Wi-Fi",
+    state: "unicom"
+  });
+
+  assert.deepEqual(execution.result, {
+    addresses: ["192.0.2.1"],
+    ttl: 600
+  });
+  assert.deepEqual(execution.storeReads, [
+    "cu-cellular-carrier-state"
+  ]);
+});
+
 test("Unicom cellular returns only Unicom addresses", () => {
   const execution = runDNS({
     argument: "127.0.0.1| 192.0.2.1, 192.0.2.2 |1800",

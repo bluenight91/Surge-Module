@@ -61,39 +61,46 @@ function parseTTL(value) {
     : 3600;
 }
 
-function resolveDNS() {
-  const rawArgument = String(
-    typeof $argument === "string" ? $argument : ""
+function resolveFixedDNS(rawArgument, addressIndex) {
+  const addresses = parseAddresses(
+    getArgumentPart(rawArgument, addressIndex)
   );
-  const ssid = $network.wifi && $network.wifi.ssid;
-  let addressArgument;
-
-  if (ssid) {
-    addressArgument = getArgumentPart(rawArgument, 0);
-  } else {
-    const carrierState = $persistentStore.read(
-      "cu-cellular-carrier-state"
-    );
-
-    if (carrierState !== "unicom") {
-      // 其他蜂窝网络或检测失败时交回 Surge 正常 DNS。
-      return {};
-    }
-
-    addressArgument = getArgumentPart(rawArgument, 1);
-  }
-
-  const addresses = parseAddresses(addressArgument);
 
   if (addresses.length === 0) {
-    // 当前网络对应参数为空时交回 Surge 正常 DNS。
-    return {};
+    return null;
   }
 
   return {
     addresses,
     ttl: parseTTL(getArgumentPart(rawArgument, 2))
   };
+}
+
+function resolveDNS() {
+  const rawArgument = String(
+    typeof $argument === "string" ? $argument : ""
+  );
+  const ssid = $network.wifi && $network.wifi.ssid;
+
+  if (ssid) {
+    const wifiResult = resolveFixedDNS(rawArgument, 0);
+
+    if (wifiResult) {
+      return wifiResult;
+    }
+  }
+
+  const carrierState = $persistentStore.read(
+    "cu-cellular-carrier-state"
+  );
+
+  if (carrierState !== "unicom") {
+    // 其他蜂窝网络或检测失败时交回 Surge 正常 DNS。
+    return {};
+  }
+
+  // 保留旧行为：Wi-Fi 地址为空时仍允许联通状态回退到联通地址。
+  return resolveFixedDNS(rawArgument, 1) || {};
 }
 
 $done(resolveDNS());
