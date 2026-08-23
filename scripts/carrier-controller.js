@@ -523,6 +523,7 @@ async function main() {
   const triggerName = getTriggerName();
 
   if (consumeFeedbackSuppression(triggerName)) {
+    await processPendingReload();
     return;
   }
 
