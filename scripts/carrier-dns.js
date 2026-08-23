@@ -3,47 +3,104 @@
  */
 
 function parseAddresses(value) {
-  return String(value || "")
-    .split(",")
-    .map(address => address.trim())
-    .filter(Boolean);
+  const source = String(value || "");
+  const addresses = [];
+  let start = 0;
+
+  while (start <= source.length) {
+    const separator = source.indexOf(",", start);
+    const address = source
+      .slice(start, separator === -1 ? source.length : separator)
+      .trim();
+
+    if (address) {
+      addresses.push(address);
+    }
+
+    if (separator === -1) {
+      break;
+    }
+
+    start = separator + 1;
+  }
+
+  return addresses;
 }
 
-const rawArgument = String(
-  typeof $argument === "string" ? $argument : ""
-);
-const argumentParts = rawArgument.split("|");
-const wifiAddresses = parseAddresses(
-  argumentParts[0]
-);
-const unicomAddresses = parseAddresses(
-  argumentParts[1]
-);
-const rawTTL = String(argumentParts[2] || "").trim();
-const parsedTTL = Number(rawTTL);
-const ttl =
-  rawTTL &&
-  Number.isInteger(parsedTTL) &&
-  parsedTTL >= 0 &&
-  parsedTTL <= 2147483647
+function getArgumentPart(value, index) {
+  let start = 0;
+
+  for (let current = 0; current <= index; current += 1) {
+    const separator = value.indexOf("|", start);
+
+    if (current === index) {
+      return separator === -1
+        ? value.slice(start)
+        : value.slice(start, separator);
+    }
+
+    if (separator === -1) {
+      return "";
+    }
+
+    start = separator + 1;
+  }
+
+  return "";
+}
+
+function parseTTL(value) {
+  const rawTTL = String(value || "").trim();
+  const parsedTTL = Number(rawTTL);
+
+  return rawTTL &&
+    Number.isInteger(parsedTTL) &&
+    parsedTTL >= 0 &&
+    parsedTTL <= 2147483647
     ? parsedTTL
     : 3600;
-const ssid = $network.wifi && $network.wifi.ssid;
-const carrierState = $persistentStore.read(
-  "cu-cellular-carrier-state"
-);
-
-if (ssid && wifiAddresses.length > 0) {
-  $done({
-    addresses: wifiAddresses,
-    ttl
-  });
-} else if (carrierState === "unicom" && unicomAddresses.length > 0) {
-  $done({
-    addresses: unicomAddresses,
-    ttl
-  });
-} else {
-  // 其他蜂窝网络、检测失败或参数为空时回退 Surge 正常 DNS。
-  $done({});
 }
+
+function resolveFixedDNS(rawArgument, addressIndex) {
+  const addresses = parseAddresses(
+    getArgumentPart(rawArgument, addressIndex)
+  );
+
+  if (addresses.length === 0) {
+    return null;
+  }
+
+  return {
+    addresses,
+    ttl: parseTTL(getArgumentPart(rawArgument, 2))
+  };
+}
+
+function resolveDNS() {
+  const rawArgument = String(
+    typeof $argument === "string" ? $argument : ""
+  );
+  const ssid = $network.wifi && $network.wifi.ssid;
+
+  if (ssid) {
+    const wifiResult = resolveFixedDNS(rawArgument, 0);
+
+    if (wifiResult) {
+      return wifiResult;
+    }
+  }
+
+  const carrierState = $persistentStore.read(
+    "cu-cellular-carrier-state"
+  );
+
+  if (carrierState !== "unicom") {
+    // 其他蜂窝网络或检测失败时交回 Surge 正常 DNS。
+    return {};
+  }
+
+  // 保留旧行为：Wi-Fi 地址为空时仍允许联通状态回退到联通地址。
+  return resolveFixedDNS(rawArgument, 1) || {};
+}
+
+$done(resolveDNS());

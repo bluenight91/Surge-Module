@@ -170,7 +170,10 @@ Detached `[Rule]`。这样命中排除列表时可以继续执行主配置规则
 Wi-Fi 下不发起运营商查询并直接关闭 Payload。每次处理结束不设置
 cooldown，三个事件入口共用一个带过期保护的运行锁来避免并发执行。
 模块状态未变化时不会重复调用模块 API，因此 `profile-reloaded` 不会
-造成循环切换。
+造成循环切换。`network-changed` 检测结果与运营商状态、Payload 状态
+均一致时，也会跳过重复状态写入和 DNS 缓存清理；`engine-started` 与
+`profile-reloaded` 仍会清理 DNS 缓存，以恢复启动状态并应用更新后的
+条件 DNS 参数。
 
 ### 参数替换与 URL 编码
 
