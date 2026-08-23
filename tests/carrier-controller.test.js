@@ -12,7 +12,7 @@ const script = fs.readFileSync(
 async function runController({
   eventName = "network-changed",
   ssid = "Test Wi-Fi",
-  state = "wifi",
+  state,
   payloadEnabled = false,
   responses = [],
   store: suppliedStore = null,
@@ -33,6 +33,8 @@ async function runController({
 
   if (state !== undefined) {
     store.set("cu-cellular-carrier-state", state);
+  } else if (!suppliedStore) {
+    store.set("cu-cellular-carrier-state", "wifi");
   }
 
   const context = {
