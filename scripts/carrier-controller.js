@@ -111,9 +111,18 @@ async function queryIPIP() {
   );
   const result = parseJSON(body, "IPIP");
   const rawLocation = result && result.data && result.data.location;
-  const location = Array.isArray(rawLocation)
-    ? rawLocation.map(value => String(value || "").trim()).filter(Boolean)
-    : [];
+  let location = "";
+
+  if (Array.isArray(rawLocation)) {
+    for (const value of rawLocation) {
+      const part = String(value || "").trim();
+
+      if (part) {
+        location += `${location ? " " : ""}${part}`;
+      }
+    }
+  }
+
   const ip = String(
     (result && result.data && result.data.ip) || ""
   ).trim();
@@ -127,19 +136,18 @@ async function queryIPIP() {
 
   if (!carrier) {
     throw new Error(
-      `IPIP 没有返回运营商：${location.join(" ") || "空"}`
+      `IPIP 没有返回运营商：${location || "空"}`
     );
   }
 
   console.log(
-    `[运营商检测] IPIP：IP=${ip}，位置=${location.join(" ")}，运营商=${carrier}`
+    `[运营商检测] IPIP：IP=${ip}，位置=${location}，运营商=${carrier}`
   );
 
   return {
     ip,
     carrier,
     org: carrier,
-    location,
     source: "ipip"
   };
 }
@@ -166,12 +174,18 @@ async function queryIPinfo() {
     throw new Error("IPinfo 没有返回出口 IP");
   }
 
-  result.source = "ipinfo";
   console.log(
     `[运营商检测] IPinfo：IP=${result.ip}，ORG=${result.org || "未知"}`
   );
 
-  return result;
+  // 只保留后续运营商判断和通知需要的字段，尽快释放完整响应对象。
+  return {
+    ip: result.ip,
+    org: result.org,
+    carrier: result.carrier,
+    asn: result.asn,
+    source: "ipinfo"
+  };
 }
 
 async function queryCarrierInfo() {
@@ -196,9 +210,15 @@ function getASN(info) {
 
 function isChinaUnicom(info) {
   const asn = getASN(info);
-  const text = [info && info.carrier, info && info.org]
-    .filter(Boolean)
-    .join(" ");
+  const carrier = info && info.carrier;
+  const org = info && info.org;
+  const text = carrier
+    ? org
+      ? `${carrier} ${org}`
+      : String(carrier)
+    : org
+      ? String(org)
+      : "";
   const matched =
     CONFIG.unicomASNs.includes(asn) ||
     /china\s*unicom|china169|cncgroup|联通/i.test(text);
@@ -212,7 +232,7 @@ function isChinaUnicom(info) {
   return matched;
 }
 
-async function getModules() {
+async function getPayloadEnabled() {
   const modules = await callSurgeAPI("GET", "v1/modules");
 
   if (
@@ -223,17 +243,15 @@ async function getModules() {
     throw new Error("Surge 返回的模块数据格式不正确");
   }
 
-  return modules;
-}
-
-async function setPayloadEnabled(enabled) {
-  const modules = await getModules();
-
   if (!modules.available.includes(CONFIG.payloadModule)) {
     throw new Error(`未找到模块“${CONFIG.payloadModule}”`);
   }
 
-  const currentlyEnabled = modules.enabled.includes(CONFIG.payloadModule);
+  return modules.enabled.includes(CONFIG.payloadModule);
+}
+
+async function setPayloadEnabled(enabled) {
+  const currentlyEnabled = await getPayloadEnabled();
 
   if (currentlyEnabled === enabled) {
     console.log(
@@ -263,27 +281,56 @@ function saveState(state) {
   $persistentStore.write(state, CONFIG.stateKey);
 }
 
-async function applyState(enabled, state, info = null) {
+function shouldForceDNSRefresh(triggerName) {
+  // 未知入口保持原有的保守刷新行为；仅同状态 network-changed 可安全跳过。
+  return triggerName !== "network-changed";
+}
+
+async function commitState(state, previousState, moduleChanged, triggerName) {
+  const stateChanged = previousState !== state;
+
+  if (stateChanged) {
+    saveState(state);
+  }
+
+  if (
+    stateChanged ||
+    moduleChanged ||
+    shouldForceDNSRefresh(triggerName)
+  ) {
+    await flushDNS();
+  } else {
+    console.log("[运营商检测] 状态未改变，跳过 DNS 缓存清理");
+  }
+
+  return stateChanged;
+}
+
+async function applyState(
+  enabled,
+  state,
+  info = null,
+  triggerName = "unknown"
+) {
   const previousState = $persistentStore.read(CONFIG.stateKey);
   const moduleChanged = await setPayloadEnabled(enabled);
+  const stateChanged = await commitState(
+    state,
+    previousState,
+    moduleChanged,
+    triggerName
+  );
 
-  saveState(state);
-  // 状态及模块切换完成后清理旧解析结果。
-  await flushDNS();
-
-  if (previousState === state && !moduleChanged) {
+  if (!stateChanged && !moduleChanged) {
     console.log("[运营商检测] 状态未改变，不发送重复通知");
     return;
   }
 
-  const detail =
-    state === "wifi"
-      ? `SSID：${($network.wifi && $network.wifi.ssid) || "未知"}`
-      : [
-          (info && info.source) || "未知来源",
-          (info && info.ip) || "未知 IP",
-          (info && (info.carrier || info.org)) || "未知运营商"
-        ].join(" · ");
+  const detail = state === "wifi"
+    ? `SSID：${($network.wifi && $network.wifi.ssid) || "未知"}`
+    : `${(info && info.source) || "未知来源"} · ${
+        (info && info.ip) || "未知 IP"
+      } · ${(info && (info.carrier || info.org)) || "未知运营商"}`;
   const subtitle = enabled
     ? "中国联通：Payload 已启用"
     : state === "wifi"
@@ -293,7 +340,7 @@ async function applyState(enabled, state, info = null) {
   $notification.post("Surge 蜂窝运营商检测", subtitle, detail);
 }
 
-async function failClosed(error) {
+async function failClosed(error, triggerName = "unknown") {
   console.log(`[运营商检测] 检测失败：${error}`);
 
   const previousState = $persistentStore.read(CONFIG.stateKey);
@@ -305,10 +352,14 @@ async function failClosed(error) {
     console.log(`[运营商检测] 关闭 Payload 失败：${moduleError}`);
   }
 
-  saveState("detection-failed");
-  await flushDNS();
+  const stateChanged = await commitState(
+    "detection-failed",
+    previousState,
+    moduleChanged,
+    triggerName
+  );
 
-  if (previousState !== "detection-failed" || moduleChanged) {
+  if (stateChanged || moduleChanged) {
     $notification.post(
       "Surge 运营商检测失败",
       "已关闭联通蜂窝功能",
@@ -353,14 +404,16 @@ async function main() {
     return;
   }
 
+  const triggerName = getTriggerName();
+
   try {
-    console.log(`[运营商检测] 触发事件=${getTriggerName()}`);
+    console.log(`[运营商检测] 触发事件=${triggerName}`);
 
     const initialSSID = $network.wifi && $network.wifi.ssid;
 
     if (initialSSID) {
       console.log(`[运营商检测] 当前为 Wi-Fi：${initialSSID}`);
-      await applyState(false, "wifi");
+      await applyState(false, "wifi", null, triggerName);
       return;
     }
 
@@ -371,7 +424,7 @@ async function main() {
 
     if (currentSSID) {
       console.log(`[运营商检测] 等待期间连接 Wi-Fi：${currentSSID}`);
-      await applyState(false, "wifi");
+      await applyState(false, "wifi", null, triggerName);
       return;
     }
 
@@ -381,10 +434,11 @@ async function main() {
     await applyState(
       unicom,
       unicom ? "unicom" : "other-cellular",
-      info
+      info,
+      triggerName
     );
   } catch (error) {
-    await failClosed(error);
+    await failClosed(error, triggerName);
   } finally {
     releaseLock();
   }
