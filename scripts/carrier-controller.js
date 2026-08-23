@@ -21,11 +21,8 @@ const CONFIG = {
   stateKey: "cu-cellular-carrier-state",
   runningKey: "cu-cellular-controller-running",
   feedbackKey: "cu-cellular-controller-feedback",
-  pendingReloadKey: "cu-cellular-controller-pending-reload",
   lockLifetime: 60000,
   feedbackLifetime: 5000,
-  pendingReloadMaxWait: 30000,
-  pendingReloadPollInterval: 100,
   unicomASNs: [
     4808,
     4837,
@@ -38,8 +35,6 @@ const CONFIG = {
     140979
   ]
 };
-
-let dnsRefreshCompleted = false;
 
 function sleep(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -278,7 +273,6 @@ async function setPayloadEnabled(enabled) {
 async function flushDNS() {
   try {
     await callSurgeAPI("POST", "v1/dns/flush");
-    dnsRefreshCompleted = true;
     console.log("[运营商检测] DNS 缓存已清理");
   } catch (error) {
     console.log(`[运营商检测] DNS 清理失败：${error}`);
@@ -466,45 +460,11 @@ function releaseLock() {
   $persistentStore.write("0", CONFIG.runningKey);
 }
 
-async function processPendingReload() {
-  if ($persistentStore.read(CONFIG.pendingReloadKey) !== "1") {
-    return false;
-  }
-
-  $persistentStore.write("0", CONFIG.pendingReloadKey);
-
-  if (dnsRefreshCompleted) {
-    console.log("[运营商检测] 待处理的配置重载已由当前任务刷新 DNS");
-  } else {
-    console.log("[运营商检测] 正在处理排队的配置重载 DNS 刷新");
-    await flushDNS();
-  }
-
-  return true;
-}
-
-async function deferProfileReload() {
-  $persistentStore.write("1", CONFIG.pendingReloadKey);
-  console.log("[运营商检测] 配置重载已排队，等待当前任务完成");
-
-  const deadline = Date.now() + CONFIG.pendingReloadMaxWait;
-
-  while (Date.now() < deadline) {
-    await sleep(CONFIG.pendingReloadPollInterval);
-
-    if ($persistentStore.read(CONFIG.pendingReloadKey) !== "1") {
-      console.log("[运营商检测] 排队的配置重载已处理");
-      return;
-    }
-
-    if (!isLockActive()) {
-      await processPendingReload();
-      return;
-    }
-  }
-
-  console.log("[运营商检测] 等待运行锁超时，直接处理配置重载");
-  await processPendingReload();
+async function refreshDNSForLockedReload() {
+  console.log(
+    "[运营商检测] 配置重载遇到运行中任务，仅刷新 DNS 后退出"
+  );
+  await flushDNS();
 }
 
 function getTriggerName() {
@@ -523,13 +483,12 @@ async function main() {
   const triggerName = getTriggerName();
 
   if (consumeFeedbackSuppression(triggerName)) {
-    await processPendingReload();
     return;
   }
 
   if (!acquireLock()) {
     if (triggerName === "profile-reloaded") {
-      await deferProfileReload();
+      await refreshDNSForLockedReload();
     }
 
     return;
@@ -569,11 +528,7 @@ async function main() {
   } catch (error) {
     await failClosed(error, triggerName);
   } finally {
-    try {
-      await processPendingReload();
-    } finally {
-      releaseLock();
-    }
+    releaseLock();
   }
 }
 
