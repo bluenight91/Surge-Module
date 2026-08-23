@@ -167,13 +167,19 @@ Detached `[Rule]`。这样命中排除列表时可以继续执行主配置规则
 仍会尝试无 Token 请求。
 
 检测到中国联通后启用 Payload；其他运营商或检测失败时关闭 Payload。
-Wi-Fi 下不发起运营商查询并直接关闭 Payload。每次处理结束不设置
-cooldown，三个事件入口共用一个带过期保护的运行锁来避免并发执行。
-模块状态未变化时不会重复调用模块 API，因此 `profile-reloaded` 不会
-造成循环切换。`network-changed` 检测结果与运营商状态、Payload 状态
-均一致时，也会跳过重复状态写入和 DNS 缓存清理；`engine-started` 与
-`profile-reloaded` 仍会清理 DNS 缓存，以恢复启动状态并应用更新后的
-条件 DNS 参数。
+Wi-Fi 下不发起运营商查询并直接关闭 Payload。控制器不设置通用
+cooldown；Payload 状态切换后会记录一个 5 秒有效、仅使用一次的反馈
+标记。紧随其后且网络类型和运营商状态均一致的 `network-changed` 会被
+视为模块切换反馈并直接结束，不再等待出口稳定、查询 IPIP 或调用模块
+API。真实的 Wi-Fi/蜂窝类型变化不会被该标记抑制。
+
+三个事件入口共用一个带过期保护的运行锁来避免并发检测。配置重载若在
+其他任务运行期间到达，会排队等待当前任务完成并确保 DNS 得到刷新，
+而不是直接丢弃。模块状态未变化时不会重复调用模块 API，因此
+`profile-reloaded` 不会造成循环切换。普通 `network-changed` 的检测
+结果与运营商状态、Payload 状态均一致时，也会跳过重复状态写入和 DNS
+缓存清理；`engine-started` 与 `profile-reloaded` 仍会清理 DNS 缓存，
+以恢复启动状态并应用更新后的条件 DNS 参数。
 
 ### 参数替换与 URL 编码
 

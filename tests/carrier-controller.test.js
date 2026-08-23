@@ -12,11 +12,14 @@ const script = fs.readFileSync(
 async function runController({
   eventName = "network-changed",
   ssid = "Test Wi-Fi",
-  state = "wifi",
+  state,
   payloadEnabled = false,
-  responses = []
+  responses = [],
+  store: suppliedStore = null,
+  now = 1000000,
+  onSleep = null
 } = {}) {
-  const store = new Map();
+  const store = suppliedStore || new Map();
   const storeReads = [];
   const storeWrites = [];
   const apiCalls = [];
@@ -25,10 +28,13 @@ async function runController({
   const logs = [];
   let doneCount = 0;
   let currentPayloadEnabled = payloadEnabled;
+  let currentNow = now;
   const responseQueue = responses.slice();
 
   if (state !== undefined) {
     store.set("cu-cellular-carrier-state", state);
+  } else if (!suppliedStore) {
+    store.set("cu-cellular-carrier-state", "wifi");
   }
 
   const context = {
@@ -101,7 +107,18 @@ async function runController({
         logs.push(message);
       }
     },
-    setTimeout(callback) {
+    Date: {
+      now() {
+        return currentNow;
+      }
+    },
+    setTimeout(callback, milliseconds = 0) {
+      currentNow += Number(milliseconds) || 0;
+
+      if (onSleep) {
+        onSleep({ milliseconds, store });
+      }
+
       callback();
       return 0;
     }
@@ -116,6 +133,7 @@ async function runController({
     doneCount,
     logs,
     notifications,
+    now: currentNow,
     payloadEnabled: currentPayloadEnabled,
     requests,
     store,
@@ -155,6 +173,77 @@ test("profile reload still refreshes DNS when state is unchanged", async () => {
   assert.equal(result.notifications.length, 0);
 });
 
+test("locked profile reload waits and performs its required DNS refresh", async () => {
+  const store = new Map([
+    ["cu-cellular-carrier-state", "wifi"],
+    ["cu-cellular-controller-running", "1000000"]
+  ]);
+  let released = false;
+  const result = await runController({
+    eventName: "profile-reloaded",
+    state: undefined,
+    store,
+    now: 1000100,
+    onSleep({ store: sharedStore }) {
+      if (!released) {
+        released = true;
+        sharedStore.set("cu-cellular-controller-running", "0");
+      }
+    }
+  });
+
+  assert.equal(callsTo(result, "GET", "v1/modules").length, 0);
+  assert.equal(callsTo(result, "POST", "v1/dns/flush").length, 1);
+  assert.equal(
+    store.get("cu-cellular-controller-pending-reload"),
+    "0"
+  );
+  assert.ok(
+    result.logs.some(log => log.includes("配置重载已排队"))
+  );
+});
+
+test("active task consumes a queued reload before releasing its lock", async () => {
+  const store = new Map([
+    ["cu-cellular-carrier-state", "wifi"],
+    ["cu-cellular-controller-pending-reload", "1"]
+  ]);
+  const result = await runController({
+    state: undefined,
+    store
+  });
+
+  assert.equal(callsTo(result, "POST", "v1/dns/flush").length, 1);
+  assert.equal(
+    store.get("cu-cellular-controller-pending-reload"),
+    "0"
+  );
+  assert.ok(
+    result.logs.some(log => log.includes("正在处理排队的配置重载"))
+  );
+});
+
+test("queued reload does not duplicate a DNS refresh already completed", async () => {
+  const store = new Map([
+    ["cu-cellular-carrier-state", "unicom"],
+    ["cu-cellular-controller-pending-reload", "1"]
+  ]);
+  const result = await runController({
+    state: undefined,
+    store,
+    payloadEnabled: true
+  });
+
+  assert.equal(callsTo(result, "POST", "v1/dns/flush").length, 1);
+  assert.equal(
+    store.get("cu-cellular-controller-pending-reload"),
+    "0"
+  );
+  assert.ok(
+    result.logs.some(log => log.includes("已由当前任务刷新 DNS"))
+  );
+});
+
 test("Wi-Fi transition disables Payload, stores state, and flushes DNS", async () => {
   const result = await runController({
     state: "unicom",
@@ -191,6 +280,87 @@ test("IPIP Unicom response enables Payload with compact carrier data", async () 
   assert.equal(result.store.get("cu-cellular-carrier-state"), "unicom");
   assert.equal(callsTo(result, "POST", "v1/dns/flush").length, 1);
   assert.equal(result.notifications.length, 1);
+});
+
+test("Payload feedback event skips delay, carrier lookup, and module API", async () => {
+  const first = await runController({
+    ssid: null,
+    state: "other-cellular",
+    responses: [
+      {
+        body: {
+          data: {
+            ip: "198.51.100.12",
+            location: ["中国", "广东", "", "", "中国联通"]
+          }
+        }
+      }
+    ]
+  });
+  const marker = first.store.get("cu-cellular-controller-feedback");
+
+  assert.match(marker, /\|unicom$/);
+
+  const duplicate = await runController({
+    ssid: null,
+    state: undefined,
+    payloadEnabled: true,
+    store: first.store,
+    now: first.now + 500
+  });
+
+  assert.equal(duplicate.requests.length, 0);
+  assert.equal(duplicate.apiCalls.length, 0);
+  assert.equal(duplicate.now, first.now + 500);
+  assert.equal(
+    duplicate.store.get("cu-cellular-controller-feedback"),
+    "0"
+  );
+  assert.ok(
+    duplicate.logs.some(log => log.includes("已忽略 Payload 切换"))
+  );
+});
+
+test("suppressed feedback event still completes a pending reload refresh", async () => {
+  const store = new Map([
+    ["cu-cellular-carrier-state", "unicom"],
+    ["cu-cellular-controller-feedback", "1000000|unicom"],
+    ["cu-cellular-controller-pending-reload", "1"]
+  ]);
+  const result = await runController({
+    ssid: null,
+    state: undefined,
+    payloadEnabled: true,
+    store,
+    now: 1000500
+  });
+
+  assert.equal(result.requests.length, 0);
+  assert.equal(callsTo(result, "GET", "v1/modules").length, 0);
+  assert.equal(callsTo(result, "POST", "v1/dns/flush").length, 1);
+  assert.equal(
+    store.get("cu-cellular-controller-pending-reload"),
+    "0"
+  );
+});
+
+test("feedback marker never suppresses a real Wi-Fi/cellular type change", async () => {
+  const store = new Map([
+    ["cu-cellular-carrier-state", "unicom"],
+    ["cu-cellular-controller-feedback", "1000000|unicom"]
+  ]);
+  const result = await runController({
+    ssid: "Test Wi-Fi",
+    state: undefined,
+    payloadEnabled: true,
+    store,
+    now: 1000500
+  });
+
+  assert.equal(result.payloadEnabled, false);
+  assert.equal(callsTo(result, "GET", "v1/modules").length, 1);
+  assert.equal(callsTo(result, "POST", "v1/modules").length, 1);
+  assert.equal(store.get("cu-cellular-carrier-state"), "wifi");
 });
 
 test("same carrier state repairs externally disabled Payload and flushes DNS", async () => {

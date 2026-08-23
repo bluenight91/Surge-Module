@@ -3,7 +3,7 @@
  *
  * 蜂窝网络下优先通过 DIRECT 查询 IPIP，失败时回退 IPinfo。
  * 响应网络变化、引擎启动和配置重载事件。
- * 运行结束后不设置冷却期，持久化锁仅用于避免并发检测。
+ * 不设置通用冷却期，仅抑制 Payload 切换反馈的下一次重复网络事件。
  */
 
 const ipinfoTokenArgument = String(
@@ -20,7 +20,12 @@ const CONFIG = {
   detectionDelay: 2500,
   stateKey: "cu-cellular-carrier-state",
   runningKey: "cu-cellular-controller-running",
+  feedbackKey: "cu-cellular-controller-feedback",
+  pendingReloadKey: "cu-cellular-controller-pending-reload",
   lockLifetime: 60000,
+  feedbackLifetime: 5000,
+  pendingReloadMaxWait: 30000,
+  pendingReloadPollInterval: 100,
   unicomASNs: [
     4808,
     4837,
@@ -33,6 +38,8 @@ const CONFIG = {
     140979
   ]
 };
+
+let dnsRefreshCompleted = false;
 
 function sleep(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -271,6 +278,7 @@ async function setPayloadEnabled(enabled) {
 async function flushDNS() {
   try {
     await callSurgeAPI("POST", "v1/dns/flush");
+    dnsRefreshCompleted = true;
     console.log("[运营商检测] DNS 缓存已清理");
   } catch (error) {
     console.log(`[运营商检测] DNS 清理失败：${error}`);
@@ -279,6 +287,59 @@ async function flushDNS() {
 
 function saveState(state) {
   $persistentStore.write(state, CONFIG.stateKey);
+}
+
+function saveFeedbackSuppression(state) {
+  $persistentStore.write(
+    `${Date.now()}|${state}`,
+    CONFIG.feedbackKey
+  );
+}
+
+function consumeFeedbackSuppression(triggerName) {
+  if (triggerName !== "network-changed") {
+    return false;
+  }
+
+  const value = $persistentStore.read(CONFIG.feedbackKey);
+
+  if (!value || value === "0") {
+    return false;
+  }
+
+  const separator = value.indexOf("|");
+  const createdAt = Number(value.slice(0, separator));
+  const expectedState = separator === -1
+    ? ""
+    : value.slice(separator + 1);
+  const age = Date.now() - createdAt;
+  const currentState = $persistentStore.read(CONFIG.stateKey);
+  const isWiFi = Boolean($network.wifi && $network.wifi.ssid);
+  const expectedWiFi = expectedState === "wifi";
+  const validState =
+    expectedState === "wifi" ||
+    expectedState === "unicom" ||
+    expectedState === "other-cellular" ||
+    expectedState === "detection-failed";
+
+  $persistentStore.write("0", CONFIG.feedbackKey);
+
+  if (
+    separator !== -1 &&
+    Number.isFinite(createdAt) &&
+    age >= 0 &&
+    age <= CONFIG.feedbackLifetime &&
+    validState &&
+    currentState === expectedState &&
+    isWiFi === expectedWiFi
+  ) {
+    console.log(
+      "[运营商检测] 已忽略 Payload 切换产生的重复网络事件"
+    );
+    return true;
+  }
+
+  return false;
 }
 
 function shouldForceDNSRefresh(triggerName) {
@@ -321,6 +382,10 @@ async function applyState(
     triggerName
   );
 
+  if (moduleChanged) {
+    saveFeedbackSuppression(state);
+  }
+
   if (!stateChanged && !moduleChanged) {
     console.log("[运营商检测] 状态未改变，不发送重复通知");
     return;
@@ -359,6 +424,10 @@ async function failClosed(error, triggerName = "unknown") {
     triggerName
   );
 
+  if (moduleChanged) {
+    saveFeedbackSuppression("detection-failed");
+  }
+
   if (stateChanged || moduleChanged) {
     $notification.post(
       "Surge 运营商检测失败",
@@ -368,13 +437,23 @@ async function failClosed(error, triggerName = "unknown") {
   }
 }
 
-function acquireLock() {
-  const now = Date.now();
-  const runningAt = Number(
+function getRunningAt() {
+  return Number(
     $persistentStore.read(CONFIG.runningKey) || 0
   );
+}
 
-  if (runningAt && now - runningAt < CONFIG.lockLifetime) {
+function isLockActive(now = Date.now()) {
+  const runningAt = getRunningAt();
+  return Boolean(
+    runningAt && now - runningAt < CONFIG.lockLifetime
+  );
+}
+
+function acquireLock() {
+  const now = Date.now();
+
+  if (isLockActive(now)) {
     console.log("[运营商检测] 已有任务正在执行，本次跳过");
     return false;
   }
@@ -385,6 +464,47 @@ function acquireLock() {
 
 function releaseLock() {
   $persistentStore.write("0", CONFIG.runningKey);
+}
+
+async function processPendingReload() {
+  if ($persistentStore.read(CONFIG.pendingReloadKey) !== "1") {
+    return false;
+  }
+
+  $persistentStore.write("0", CONFIG.pendingReloadKey);
+
+  if (dnsRefreshCompleted) {
+    console.log("[运营商检测] 待处理的配置重载已由当前任务刷新 DNS");
+  } else {
+    console.log("[运营商检测] 正在处理排队的配置重载 DNS 刷新");
+    await flushDNS();
+  }
+
+  return true;
+}
+
+async function deferProfileReload() {
+  $persistentStore.write("1", CONFIG.pendingReloadKey);
+  console.log("[运营商检测] 配置重载已排队，等待当前任务完成");
+
+  const deadline = Date.now() + CONFIG.pendingReloadMaxWait;
+
+  while (Date.now() < deadline) {
+    await sleep(CONFIG.pendingReloadPollInterval);
+
+    if ($persistentStore.read(CONFIG.pendingReloadKey) !== "1") {
+      console.log("[运营商检测] 排队的配置重载已处理");
+      return;
+    }
+
+    if (!isLockActive()) {
+      await processPendingReload();
+      return;
+    }
+  }
+
+  console.log("[运营商检测] 等待运行锁超时，直接处理配置重载");
+  await processPendingReload();
 }
 
 function getTriggerName() {
@@ -400,11 +520,20 @@ function getTriggerName() {
 }
 
 async function main() {
-  if (!acquireLock()) {
+  const triggerName = getTriggerName();
+
+  if (consumeFeedbackSuppression(triggerName)) {
+    await processPendingReload();
     return;
   }
 
-  const triggerName = getTriggerName();
+  if (!acquireLock()) {
+    if (triggerName === "profile-reloaded") {
+      await deferProfileReload();
+    }
+
+    return;
+  }
 
   try {
     console.log(`[运营商检测] 触发事件=${triggerName}`);
@@ -440,7 +569,11 @@ async function main() {
   } catch (error) {
     await failClosed(error, triggerName);
   } finally {
-    releaseLock();
+    try {
+      await processPendingReload();
+    } finally {
+      releaseLock();
+    }
   }
 }
 
