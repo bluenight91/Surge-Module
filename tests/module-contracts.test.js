@@ -35,6 +35,23 @@ test("controller keeps all event and conditional DNS entry points", () => {
   assert.match(dnsLine, /engine=jsc$/);
 });
 
+test("PluginHub2Surge keeps the ad-block category and hub rewrites", () => {
+  const module = read("pluginhub2surge.sgmodule");
+
+  assert.match(module, /^#!name=PluginHub2Surge$/m);
+  assert.match(module, /^#!category=去广告$/m);
+  assert.match(module, /^\[Body Rewrite\]$/m);
+  assert.match(
+    module,
+    /^http-response \^https:\/\/hub\\\.kelee\\\.one\/list\\\.json /m
+  );
+  assert.match(
+    module,
+    /^http-request \^https:\/\/hub\\\.kelee\\\.one\/list\\\.json header-del if-none-match$/m
+  );
+  assert.match(module, /^hostname = %APPEND% hub\.kelee\.one$/m);
+});
+
 test("Payload keeps cellular DIRECT and encrypted DNS semantics", () => {
   const payload = read("cu-cellular-payload.sgmodule");
 

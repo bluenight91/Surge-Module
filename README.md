@@ -1,7 +1,7 @@
 # Surge 模块
 
 本仓库包含适用于 Surge iOS/macOS 的 Surge Monitor 信息面板、
-DNS-QUERY 模块，以及 Surge iOS 专用的 5GPN 蜂窝网络控制模块。
+DNS-QUERY 模块、PluginHub2Surge，以及 Surge iOS 专用的 5GPN 蜂窝网络控制模块。
 
 ## Surge Monitor
 
@@ -79,6 +79,16 @@ DoH 请求会把查询域名发给参数指定的上游；启用 ECS 时还会�
 客户端子网。`edns=auto` 时，定时任务会用 `DIRECT` 访问
 `https://1.1.1.1/cdn-cgi/trace` 以刷新直连公网 IP。统计只保存在
 Surge 本地 `persistentStore`，不会写入本仓库或其他服务。
+
+## PluginHub2Surge
+
+`pluginhub2surge.sgmodule` 改写可莉插件中心
+`https://hub.kelee.one/list.json` 里的 Loon 插件链接，使其经
+Script-Hub 转成 Surge 模块安装链接。使用前请先安装 Script-Hub 模块，
+并为 `hub.kelee.one` 启用 MITM；模块已追加该 hostname。
+
+- Raw URL：[远程模块](https://raw.githubusercontent.com/bluenight91/Surge-Module/refs/heads/main/pluginhub2surge.sgmodule)
+- 一键安装：[在 Surge 中安装](surge:///install-module?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbluenight91%2FSurge-Module%2Frefs%2Fheads%2Fmain%2Fpluginhub2surge.sgmodule)
 
 ## 5GPN 蜂窝控制
 
